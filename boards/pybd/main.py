@@ -1,100 +1,93 @@
+import pyb
+import _thread
+import time
 
 import network
 from microWebSrv import MicroWebSrv
 
 from led36 import led36
-from sensa import OPT3001
-import pyb
-import time 
-import machine
-from lps22hx import LPS22HH
 from lsm9ds1 import LSM9DS1
-import time
-import _thread
 
-class MeasurementAcquire:
+
+class LedTile:
     def __init__(self):
-        config = {
-            'lps22hh': {'i2c_bus': 2, 'i2c_addr': 0x5C},
-            'lsm9ds1_accgyr': {'i2c_bus': 2, 'i2c_addr': 0x6A},
-            'lsm9ds1_mag': {'i2c_bus': 2, 'i2c_addr': 0x1C},
-            'extPower': {'enable': "EN_3V3"},
-        }
+        self._tile = led36()
+        self._tile.brightness(100)
+        self._tile.illu(0, 0, 0)
 
-        pon = pyb.Pin(config['extPower']['enable'])
-        pon.on()
-        time.sleep_ms(20)
+    def set_color(self, r, g, b):
+        self._tile.illu(r, g, b)
 
-        self.tile = led36()
-        pyb.Pin('PULL_SCL', pyb.Pin.OUT, value=1)  # enable 5.6kOhm X9/SCL pull-up
-        pyb.Pin('PULL_SDA', pyb.Pin.OUT, value=1)  # enable 5.6kOhm X10/SDA pull-up
-        # i2cx = machine.I2C('X')
-        i2cy = pyb.I2C(config['lps22hh']['i2c_bus'], pyb.I2C.MASTER, baudrate=100000)
-        # lps22 = LPS22HH(i2cy, config['lps22hh']['i2c_addr'])
-        self.lsm9d1 = LSM9DS1(i2cy, config['lsm9ds1_accgyr']['i2c_addr'], config['lsm9ds1_accgyr']['i2c_addr'],
-                         config['lsm9ds1_mag']['i2c_addr'])
-        self.tile.brightness(100)
-        self.tile.fill_rgb(255, 255, 255)
-        # sense = OPT3001(i2cx)
 
-        _thread.start_new_thread(self.run, ())
+class ThreadedMeasuring:
+    def __init__(self, led_tile):
+        # Initialize internal variables
+        self._r = 0
+        self._g = 0
+        self._led_tile = led_tile
 
-    def run(self):
-        while (True):
-            acc = self.lsm9d1.accel.xyz()
-            self.r = int(acc[1] * 512) if acc[1] > 0 else 0
-            self.g = int(-acc[1] * 512) if acc[1] < 0 else 0
-            self.tile.illu(self.r, self.g, 0)
+        # Initialize Inertial Module
+        i2c_y = pyb.I2C(2, pyb.I2C.MASTER, baudrate=100000)
+        self._lsm9d1 = LSM9DS1(i2c_y, dev_acc_sel=0x6A, dev_gyr_sel=0x6A, dev_mag_sel=0x1C)
 
-    def get_latest_measurements(self):
-        return self.r, self.g
+        # Start periodic measurements as thread
+        _thread.start_new_thread(self._run, ())
 
-# --- Webserver ---
+    def _run(self):
+        while True:
+            acc = self._lsm9d1.accel.xyz()
+            self._r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
+            self._g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
+            self._led_tile.set_color(self._r, self._g, 0)
+
+    def get_latest_measurement_rgb(self):
+        return self._r, self._g, 0
+
 
 class AccessPoint(network.WLAN):
     SSID = "Guild42Mp"
-    PASSWORD="mp1234"
-    
+
     def __init__(self):
         super().__init__(1)
-        self.config(essid=self.SSID)          # set AP SSID
-        self.config(password=self.PASSWORD)   # set AP password
-        self.config(channel=4)             # set AP channel
-        self.active(1)                     # enable the AP
-        print("Started Access point: %s" % (self.SSID))
+        self.config(essid=self.SSID)  # set AP SSID
+        self.config(channel=4)  # set AP channel
+        self.active(1)  # enable the AP
+        print("Started Access point: %s" % self.SSID)
 
-    def __del__(self):
-        self.status('stations')    # get a list of connection stations
-        self.active(0)             # shut down the AP
 
-# ----------------------------------------------------------------------------
+class DemoWebServer:
+    def __init__(self, web_path, measurement_source):
+        self.measurement_source = measurement_source
 
-def _acceptWebSocketCallback(webSocket, httpClient):
-    print("WS ACCEPT2")
-    webSocket.RecvTextCallback   = _recvTextCallback
-    webSocket.RecvBinaryCallback = _recvBinaryCallback
-    webSocket.ClosedCallback     = _closedCallback
+        self.srv = MicroWebSrv(webPath=web_path)
+        self.srv.MaxWebSocketRecvLen = 256
+        self.srv.WebSocketThreaded = False
+        self.srv.AcceptWebSocketCallback = self._accept_websocket_callback
+        self.srv.Start()
 
-def _recvTextCallback(webSocket, msg) : 
-    print("WS RECV TEXT : %s" % msg)
-    r, g = meas.get_latest_measurements()
-    webSocket.SendText("%d,%d,0" % (r, g))
+    def _accept_websocket_callback(self, websocket, httpclient):
+        print("Accepted Websocket Connection")
+        websocket.RecvTextCallback = self._received_text_callback
+        websocket.RecvBinaryCallback = self._received_binary_callback
+        websocket.ClosedCallback = self._websocket_closed_callback
+        # _thread.start_new_thread()
 
-def _recvBinaryCallback(webSocket, data) :
-    print("WS RECV DATA : %s" % data)
+    def _received_text_callback(self, websocket, msg):
+        if msg == "get":
+            r, g, b = self.measurement_source.get_latest_measurement_rgb()
+            websocket.SendText("%d,%d,%d" % (r, g, b))
+        else:
+            print("Received unexpected text on Websocket: " + msg)
 
-def _closedCallback(webSocket) :
-    print("WS CLOSED")
-    run = False
+    def _received_binary_callback(self, websocket, data):
+        print("Received Data: %s" % data)
 
-meas = MeasurementAcquire()
+    def _websocket_closed_callback(self, websocket):
+        print("Websocket closed.")
 
-ap  = AccessPoint()
-srv = MicroWebSrv(webPath='www/')
-srv.MaxWebSocketRecvLen     = 256
-srv.WebSocketThreaded        = False
-srv.AcceptWebSocketCallback = _acceptWebSocketCallback
-srv.Start()
 
-del ap
-
+if __name__ == "__main__":
+    tile = LedTile()
+    meas = ThreadedMeasuring(tile)
+    ap = AccessPoint()
+    DemoWebServer('www/', meas)
