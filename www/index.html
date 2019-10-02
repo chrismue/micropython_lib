@@ -7,7 +7,7 @@
         <title>PyBoard Accelerator Demo</title>
 		<style>
             :root {
-              --led-color: coral;
+              --led-color: black;
             }
             .rTable { display: table; width: 100%; height: 100%;}
 			.rTableRow { display: table-row; }
@@ -19,40 +19,17 @@
     <script language="javascript">
         function init()
         {
-            pollWebSocket();
-        }
-
-        function pollWebSocket()
-        {
             var wsUri           = "ws://" + window.location.hostname;
             websocket           = new WebSocket(wsUri);
-            websocket.onopen    = function(evt) { onOpen    (evt) };
-            websocket.onclose   = function(evt) { onClose   (evt) };
+            websocket.onclose   = function(evt) { console.log("DISCONNECTED"); };
             websocket.onmessage = function(evt) { onMessage (evt) };
-            websocket.onerror   = function(evt) { onError   (evt) };
+            websocket.onerror   = function(evt) { console.log('ERROR: ' + evt.data); };
         }
-
-        function onOpen(evt)
-        {
-			var intervalID = setInterval(function(){websocket.send("get");}, 100);
-        }
-
-        function onClose(evt)
-        {
-            console.log("DISCONNECTED");
-        }
-
         function onMessage(evt)
         {
-			console.log("rgb("+ evt.data + ")")
+			console.log(evt.data)
 			document.documentElement.style.setProperty('--led-color', "rgb("+ evt.data + ")");
         }
-
-        function onError(evt)
-        {
-			console.log('ERROR: ' + evt.data);
-        }
-
         window.addEventListener("load", init, false);
     </script>
 

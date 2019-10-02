@@ -31,14 +31,15 @@ class ThreadedMeasuring:
         self._lsm9d1 = LSM9DS1(i2c_y, dev_acc_sel=0x6A, dev_gyr_sel=0x6A, dev_mag_sel=0x1C)
 
         # Start periodic measurements as thread
-        _thread.start_new_thread(self._run, ())
+        # _thread.start_new_thread(self._run, ())
 
-    def _run(self):
+    def run(self, callback):
         while True:
             acc = self._lsm9d1.accel.xyz()
             self._r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
             self._g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
             self._led_tile.set_color(self._r, self._g, 0)
+            callback(self._r, self._g, 0)
 
     def get_latest_measurement_rgb(self):
         return self._r, self._g, 0
@@ -58,36 +59,43 @@ class AccessPoint(network.WLAN):
 class DemoWebServer:
     def __init__(self, web_path, measurement_source):
         self.measurement_source = measurement_source
+        self.websocket = None
 
         self.srv = MicroWebSrv(webPath=web_path)
         self.srv.MaxWebSocketRecvLen = 256
         self.srv.WebSocketThreaded = False
         self.srv.AcceptWebSocketCallback = self._accept_websocket_callback
-        self.srv.Start()
+        self.srv.Start(threaded=True)
+
+    def measurement_callback(self, r, g, b):
+        if self.websocket is not None:
+            self.websocket.SendText("%d,%d,%d" % (r, g, b))
 
     def _accept_websocket_callback(self, websocket, httpclient):
         print("Accepted Websocket Connection")
         websocket.RecvTextCallback = self._received_text_callback
         websocket.RecvBinaryCallback = self._received_binary_callback
         websocket.ClosedCallback = self._websocket_closed_callback
+        self.websocket = websocket
         # _thread.start_new_thread()
 
     def _received_text_callback(self, websocket, msg):
-        if msg == "get":
-            r, g, b = self.measurement_source.get_latest_measurement_rgb()
-            websocket.SendText("%d,%d,%d" % (r, g, b))
-        else:
-            print("Received unexpected text on Websocket: " + msg)
+        print("Received unexpected text on Websocket: " + msg)
 
     def _received_binary_callback(self, websocket, data):
         print("Received Data: %s" % data)
 
     def _websocket_closed_callback(self, websocket):
         print("Websocket closed.")
+        self.websocket = None
 
 
 if __name__ == "__main__":
     tile = LedTile()
     meas = ThreadedMeasuring(tile)
     ap = AccessPoint()
-    DemoWebServer('www/', meas)
+    webserver=DemoWebServer('www/', meas)
+
+    meas.run(webserver.measurement_callback)
+
+    print("Done.")
