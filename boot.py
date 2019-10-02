@@ -6,6 +6,8 @@ import time
 pyb.country('DE')  # ISO 3166-1 Alpha-2 code, eg US, GB, DE, AU
 
 # Enable 3.3V Output for external sensors
+pyb.Pin('PULL_SCL', pyb.Pin.OUT, value=1) # enable 5.6kOhm X9/SCL pull-up
+pyb.Pin('PULL_SDA', pyb.Pin.OUT, value=1) # enable 5.6kOhm X10/SDA pull-up
 pyb.Pin("EN_3V3").on()
 time.sleep_ms(20)
 

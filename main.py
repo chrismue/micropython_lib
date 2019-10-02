@@ -8,6 +8,8 @@ from microWebSrv import MicroWebSrv
 from led36 import led36
 from lsm9ds1 import LSM9DS1
 
+import micropython
+
 
 class LedTile:
     def __init__(self):
@@ -30,16 +32,16 @@ class ThreadedMeasuring:
         i2c_y = pyb.I2C(2, pyb.I2C.MASTER, baudrate=100000)
         self._lsm9d1 = LSM9DS1(i2c_y, dev_acc_sel=0x6A, dev_gyr_sel=0x6A, dev_mag_sel=0x1C)
 
-    def run(self, callback):
-        while True:
-            acc = self._lsm9d1.accel.xyz()
-            r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
-            g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
-            self._led_tile.set_color(r, g, 0)
-            x = min(max(acc[0] * 180, -90), 90)
-            y = min(max(acc[1] * 180, -90), 90)
-            z = min(max(acc[2] * 180, -90), 90)
-            callback(r, g, x, y, z)
+    @micropython.native
+    def run(self):
+        acc = self._lsm9d1.accel.xyz()
+        r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
+        g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
+        self._led_tile.set_color(r, g, 0)
+        x = min(max(acc[0] * 180, -90), 90)
+        y = min(max(acc[1] * 180, -90), 90)
+        z = min(max(acc[2] * 180, -90), 90)
+        return r, g, x, y, z
 
 
 class AccessPoint(network.WLAN):
@@ -93,6 +95,8 @@ if __name__ == "__main__":
     ap = AccessPoint()
     webserver=DemoWebServer('www/', meas)
 
-    meas.run(webserver.measurement_callback)
+    while True:
+        r,g,x,y,z = meas.run()
+        webserver.measurement_callback(r,g,x,y,z)
 
     print("Done.")
