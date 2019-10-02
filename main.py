@@ -30,19 +30,16 @@ class ThreadedMeasuring:
         i2c_y = pyb.I2C(2, pyb.I2C.MASTER, baudrate=100000)
         self._lsm9d1 = LSM9DS1(i2c_y, dev_acc_sel=0x6A, dev_gyr_sel=0x6A, dev_mag_sel=0x1C)
 
-        # Start periodic measurements as thread
-        # _thread.start_new_thread(self._run, ())
-
     def run(self, callback):
         while True:
             acc = self._lsm9d1.accel.xyz()
-            self._r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
-            self._g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
-            self._led_tile.set_color(self._r, self._g, 0)
-            callback(self._r, self._g, 0)
-
-    def get_latest_measurement_rgb(self):
-        return self._r, self._g, 0
+            r = min(int(acc[1] * 512), 255) if acc[1] > 0 else 0
+            g = min(int(-acc[1] * 512), 255) if acc[1] < 0 else 0
+            self._led_tile.set_color(r, g, 0)
+            x = min(max(acc[0] * 180, -90), 90)
+            y = min(max(acc[1] * 180, -90), 90)
+            z = min(max(acc[2] * 180, -90), 90)
+            callback(r, g, x, y, z)
 
 
 class AccessPoint(network.WLAN):
@@ -67,9 +64,9 @@ class DemoWebServer:
         self.srv.AcceptWebSocketCallback = self._accept_websocket_callback
         self.srv.Start(threaded=True)
 
-    def measurement_callback(self, r, g, b):
+    def measurement_callback(self, r, g, x, y, z):
         if self.websocket is not None:
-            self.websocket.SendText("%d,%d,%d" % (r, g, b))
+            self.websocket.SendText("%d,%d;%f,%f,%f" % (r, g, x, y, z))
 
     def _accept_websocket_callback(self, websocket, httpclient):
         print("Accepted Websocket Connection")
