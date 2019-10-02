@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+        <meta charset="utf-8" />
+        <title>MicroWebSocket Test</title>
+		<style>
+			.rTable { display: table; width: 100%; height: 100%;}
+			.rTableRow { display: table-row; }
+			.rTableCell { display: table-cell; background: none; border:10px solid #000;}
+			html, body {height: 100%; margin: 0}
+		</style>
+    </head>
+
+    <script language="javascript">
+
+        var output;
+
+        function init()
+        {
+            // output = document.getElementById("output");
+            testWebSocket();
+        }
+
+        function testWebSocket()
+        {
+            var wsUri           = "ws://" + window.location.hostname;
+            writeToScreen("Connection to " + wsUri + "...")
+            websocket           = new WebSocket(wsUri);
+            websocket.onopen    = function(evt) { onOpen    (evt) };
+            websocket.onclose   = function(evt) { onClose   (evt) };
+            websocket.onmessage = function(evt) { onMessage (evt) };
+            websocket.onerror   = function(evt) { onError   (evt) };
+        }
+
+        function onOpen(evt)
+        {
+            writeToScreen("<strong>-- CONNECTED --</strong>");
+			var intervalID = setInterval(function(){SendMsg("Hello world :)");}, 100);
+            /*SendMsg("Hello world :)");
+            SendMsg("This is a WebSocket test");
+            SendMsg("(with a text frame encoded in UTF-8)");
+            setTimeout( function() { websocket.close() }, 500 )*/
+        }
+
+        function onClose(evt)
+        {
+            writeToScreen("<strong>-- DISCONNECTED --</strong>");
+        }
+
+        function onMessage(evt)
+        {
+			console.log("rgb("+ evt.data + ")")
+			document.body.style.backgroundColor = "rgb("+ evt.data + ")";
+            writeToScreen('MSG FROM SERVER : <span style="color: blue;">' + evt.data + '</span>');
+        }
+
+        function onError(evt)
+        {
+            writeToScreen('ERROR : <span style="color: red;">' + evt.data + '</span>');
+        }
+
+        function SendMsg(msg)
+        {
+            writeToScreen('MSG TO SERVER : <span style="color: green;">' + msg + '</span>');
+            websocket.send(msg);
+        }
+
+        function writeToScreen(s)
+        {
+            /*
+			var pre = document.createElement("p");
+            pre.style.wordWrap = "break-word";
+            pre.innerHTML = s;
+            output.appendChild(pre);
+			*/
+        }
+
+        window.addEventListener("load", init, false);
+
+    </script>
+
+	<body>
+      <!--<div id="output"></div>-->
+		<div class="rTable">
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+			<div class="rTableRow">
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+				<div class="rTableCell"></div>
+			</div>
+		</div>
+	</body>
+
+</html>
