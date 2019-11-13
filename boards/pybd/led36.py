@@ -8,7 +8,7 @@ LED_ADDR = 60           # default individual LED36 address
 
 i2c = None
 
-def cyc(addr, dt=250):
+def cyc(dt=250, addr=LED_BROADCAST):
     """ Set all LEDs to black, red, green, yellow, blue, magenta, cayn and white for dt ms
         ramp up brightnes from 0 % to 100 %
     """
@@ -33,13 +33,13 @@ def _doTransfer(addr, data):
         time.sleep_ms(20)       # wait for LED36 tiles to be ready
     i2c.writeto(addr, data)
 
-def brightness(addr, b=100):
+def brightness(b=100, addr=LED_BROADCAST):
     """ Set brigntness """
     ba = bytearray(b'\x02\x16 ')
     ba[-1] = b & 0xff
     _doTransfer(addr, ba)
 
-def bloop(addr, dt=100, maxv=100, inc=1):
+def bloop(dt=100, maxv=100, inc=1, addr=LED_BROADCAST):
     """ Cycle through brigntness ramp """
     b = 0
     while True:
@@ -49,7 +49,7 @@ def bloop(addr, dt=100, maxv=100, inc=1):
         b %= maxv
         time.sleep_ms(dt)
 
-def pump(addr, dt=10, maxv=100):
+def pump(dt=10, maxv=100, addr=LED_BROADCAST):
     """ Cycle through brightness modulation """
     import math
     sinar = []
@@ -62,7 +62,7 @@ def pump(addr, dt=10, maxv=100):
         i %= len(sinar)
         time.sleep_ms(dt)
 
-def fill_rgb(addr, r, g, b):
+def fill_rgb(r, g, b, addr=LED_BROADCAST):
     """ Fill LED array using set pixel command """
     _doTransfer(addr, b'\x02X\x00\x00')
     buf = bytearray(b'\x02A   ')
@@ -72,7 +72,7 @@ def fill_rgb(addr, r, g, b):
     for i in range(36):
         _doTransfer(addr, buf)
 
-def illu(addr, r, g, b):
+def illu(r, g, b, addr=LED_BROADCAST):
     """ Fill LED array using set illumination command """
     buf = bytearray(b'\x02i   ')
     buf[2] = r
@@ -80,7 +80,7 @@ def illu(addr, r, g, b):
     buf[4] = b
     _doTransfer(addr, buf)
 
-def fill_frame(addr, r, g, b):
+def fill_frame(r, g, b, addr=LED_BROADCAST):
     """ Fill LED array using fill frame command """
     _doTransfer(addr, b'\x02ml')
     buf = bytearray(b'   ')
@@ -90,7 +90,7 @@ def fill_frame(addr, r, g, b):
     for i in range(36):
         _doTransfer(addr, buf)
 
-def set_dot(addr, x, y, r, g, b):
+def set_dot(x, y, r, g, b, addr=LED_BROADCAST):
     """ Set single LED color at position """
     buf = bytearray(b'\x02X  ')
     buf[2] = x
@@ -103,7 +103,7 @@ def set_dot(addr, x, y, r, g, b):
     buf[4] = b
     _doTransfer(addr, buf)
 
-def fill_raw(addr, r, g, b):
+def fill_raw(r, g, b, addr=LED_BROADCAST):
     """ Fill LED array with raw values using fill frame command """
     _doTransfer(addr, b'\x02nl')
     buf = bytearray(b'   ')
@@ -113,13 +113,13 @@ def fill_raw(addr, r, g, b):
     for i in range(36):
         _doTransfer(addr, buf)
 
-def led_pins(addr, v):
+def led_pins(v, addr=LED_BROADCAST):
     """ Permute LED colors (use with care) """
     buf = bytearray(b'\x02\x1c\x00')
     buf[-1] = v & 3
     _doTransfer(addr, buf)
 
-def random_dots(addr, dt=10):
+def random_dots(dt=10, addr=LED_BROADCAST):
     """ Set random colors at random positions """
     import pyb
     while True:
@@ -133,7 +133,7 @@ def random_dots(addr, dt=10):
         set_dot(addr, x, y, r, g, b)
         time.sleep_ms(dt)
         
-def set_text_color(r,g,b,rb,gb,bb,addr=60):
+def set_text_color(r,g,b,rb,gb,bb, addr=LED_BROADCAST):
     ba = bytearray(b'\x02c      ')
     ba[-6] = b
     ba[-5] = g
@@ -143,12 +143,12 @@ def set_text_color(r,g,b,rb,gb,bb,addr=60):
     ba[-1] = rb    
     i2c.writeto(addr, ba)
 
-def set_rot(angle, addr=60):
+def set_rot(angle, addr=LED_BROADCAST):
     ba = bytearray(b'\x02\x14 ')
     ba[-1] = angle
     i2c.writeto(addr, ba)
 
-def text(data, addr=60, col_cycle=False):
+def text(data, addr=LED_BROADCAST, col_cycle=False):
     if col_cycle:
         ba = bytearray(b'\x02k ')
     else:
